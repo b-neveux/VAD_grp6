@@ -9,9 +9,9 @@ E_ALU = 70e9       # 70 GPa
 NU_ALU = 0.33      # Coefficient de Poisson
 
 # Géométrie de la section (Exercice 3 & 4 : Section en I)
-h_sect = 0.10      # 10 cm = 0.10 m
-b_sect = 0.04      # 4 cm = 0.04 m
-e_sect = 0.002     # 2 mm = 0.002 m
+h_sect = 0.07      # 7 cm = 0.07 m
+b_sect = 0.03      # 3 cm = 0.03 m
+e_sect = 0.004     # 4 mm = 0.004 m
 
 # Chargement (Exercice 3 - Cas c/)
 L_poutre = 20.0    # Longueur totale (m)
@@ -35,16 +35,15 @@ def calcul_section(h, b, e):
     """
     Calcule S (Aire), Ix (Inertie flexion), et Rho (Rayon giration) pour une section en I.
     """
-    # Aire : Grand rectangle - 2 rectangles vides
-    S = (b * h) - (b - e) * (h - 2*e)
+    # Aire : 2*petit rectangle + grand rectangle
+    S = 2*b*e + h*e
 
     # Inertie Ix (autour axe neutre horizontal)
-    I_x = (b * h**3)/12 - ((b - e) * (h - 2*e)**3)/12
+    I_x = e*( h**3/12 + b*e**2/6 + b*(h + e)**2/2)
 
-    # Rayon de giration
-    rho = np.sqrt(I_x / S)
+    I_y=e/6*( h*e**2/2 + b**3)
 
-    return S, I_x, rho
+    return S, I_x, I_y
 
 def calcul_poutre_console_superposition(x_array, L, a, F, q, E, I):
     """
@@ -59,7 +58,7 @@ def calcul_poutre_console_superposition(x_array, L, a, F, q, E, I):
     # M(x) = -q/2 * (L-x)^2
     # y(x) = (q / 24EI) * x^2 * (x^2 - 4Lx + 6L^2)
     M_q = -(q / 2) * (L - x_array)**2
-    y_q = (q / (24 * E * I)) * x_array**2 * (x_array**2 - 4*L*x_array + 6*L**2)
+    y_q = (q / (24 * E * I *L)) * x_array**2 * (x_array**2 - 4*L*x_array + 6*L**2)
 
     # --- Cas 2 : Force ponctuelle F en a (C02) ---
     M_F = np.zeros_like(x_array)
@@ -72,10 +71,7 @@ def calcul_poutre_console_superposition(x_array, L, a, F, q, E, I):
             y_F[i] = (F / (6 * E * I)) * x**2 * (3*a - x)
         else:
             M_F[i] = 0
-            # Après le point a, la poutre continue tout droit (rotation constante)
-            y_a = (F * a**3) / (3 * E * I)
-            theta_a = (F * a**2) / (2 * E * I)
-            y_F[i] = y_a + theta_a * (x - a)
+            y_F[i] = (F / (6 * E * I)) * a**2 * (3*x - a)
 
     # Superposition
     y_tot = y_q + y_F
@@ -128,11 +124,11 @@ def calcul_force_critique(L, E, I, S, nu, b, h, e):
 print("RAPPORT DE LA STRUCTURE AVION \n")
 
 #PARTIE 1 : SECTION (EXERCICE 1)
-S, Ix, Rho = calcul_section(h_sect, b_sect, e_sect)
+S, Ix, Iy = calcul_section(h_sect, b_sect, e_sect)
 print(f"1. PROPRIÉTÉS DE LA SECTION (I de {h_sect*100}x{b_sect*100} cm, ép {e_sect*1000} mm)")
 print(f"   - Aire (S) : {S:.6e} m²")
 print(f"   - Moment Quadratique (Ix) : {Ix:.6e} m^4")
-print(f"   - Rayon de giration (rho) : {Rho:.6f} m")
+print(f"   - Moment Quadratique (Iy) : {Iy:.6e} m^4")
 print("-" * 50)
 
 #PARTIE 2 : FLEXION (EXERCICES 2 & 3)
