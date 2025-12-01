@@ -22,7 +22,7 @@ q_load = -15.0     # Force linéique (N/m) - vers le haut (donc négatif)
 ##Données pour le flambage local
 # NOTE : Assurez-vous que le dossier "Sources" et le fichier "Data_k_bh.py" existent bien.
 try:
-    from Sources.Data_k_bh import bh, k
+    from Sources..data.Data_k_bh import bh, k
     bh_data = bh
     k_data = k
 except ImportError:
