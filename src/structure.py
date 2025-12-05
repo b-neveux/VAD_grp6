@@ -1,72 +1,72 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
+import sys
+import os
+import pandas as pd # Nécessaire pour lire les données réelles
 
-##Données et contraintes
+# --- GESTION DES CHEMINS ---
+# Permet de trouver le dossier 'data' même si on lance le script d'ailleurs
+current_dir = os.path.dirname(os.path.abspath(__file__))
+sys.path.append(os.path.join(current_dir, 'data'))
 
-# Matériau : Alliage Aluminium (Valeurs standards)
-E_ALU = 70e9       # 70 GPa
-NU_ALU = 0.33      # Coefficient de Poisson
-
-# Géométrie de la section (Exercice 3 & 4 : Section en I)
-h_sect = 0.07      # 7 cm = 0.07 m
-b_sect = 0.03      # 3 cm = 0.03 m
-e_sect = 0.004     # 4 mm = 0.004 m
-
-# Chargement (Exercice 3 - Cas c/)
-L_poutre = 20.0    # Longueur totale (m)
-x_F_pos = 4.0      # Position de la force ponctuelle (a=4m)
-F_load = 200.0     # Force ponctuelle (N) - vers le bas
-q_load = -15.0     # Force linéique (N/m) - vers le haut (donc négatif)
-
-##Données pour le flambage local
-# NOTE : Assurez-vous que le dossier "Sources" et le fichier "Data_k_bh.py" existent bien.
+## Données pour le flambage local
 try:
-    from data.Data_k_bh import bh, k
+    from Data_k_bh import bh, k
+    # On garde les données telles quelles
     bh_data = bh
     k_data = k
 except ImportError:
-    # Valeurs de secours pour éviter que le code ne plante si le fichier manque
-    print("! ATTENTION : Module Sources.Data_k_bh introuvable. Utilisation de valeurs par défaut.")
+    print("! ATTENTION : Module data.Data_k_bh introuvable. Utilisation de valeurs par défaut.")
     bh_data = [0, 100]
     k_data = [4, 4]
 
-# Création de la fonction d'interpolation linéaire
+# Création de la fonction d'interpolation
 get_k_factor = interp1d(bh_data, k_data, kind='linear', fill_value="extrapolate")
 
-##Fonctions de calcul
+## Données et contraintes
+E_ALU = 70e9       
+NU_ALU = 0.33      
+
+h_sect = 0.07      # 7 cm
+b_sect = 0.03      # 3 cm
+e_sect = 0.004     # 4 mm
+
+L_poutre = 20.0    
+x_F_pos = 4.0      
+F_load = 200.0     
+q_load = -15.0     
+
+## ---------------- FONCTIONS DE CALCUL ---------------- ##
 
 def calcul_section(h, b, e):
     """
-    Calcule S (Aire), Ix (Inertie flexion), et Rho (Rayon giration) pour une section en I.
+    Calcule S (Aire), Ix (Inertie flexion), et Iy pour une section en I.
     """
-    # Aire : 2*petit rectangle + grand rectangle
+    # Aire : 2*semelles + ame
     S = 2*b*e + h*e
-
     # Inertie Ix (autour axe neutre horizontal)
     I_x = e*( h**3/12 + b*e**2/6 + b*(h + e)**2/2)
-
-    I_y=e/6*( h*e**2/2 + b**3)
-
+    # Inertie Iy
+    I_y = e/6*( h*e**2/2 + b**3)
     return S, I_x, I_y
 
 def calcul_poutre_console_superposition(x_array, L, a, F, q, E, I):
     """
-    Calcule M(x) et y(x) par superposition des cas C01 (répartie) et C02 (ponctuelle).
+    Calcule M(x) et y(x) par superposition.
     """
-    # Initialisation des vecteurs
     y_tot = np.zeros_like(x_array)
     M_tot = np.zeros_like(x_array)
 
-    # --- Cas 1 : Charge répartie q (C01) ---
+    # --- Cas 1 : Charge répartie q ---
     M_q = -(q / 2) * (L - x_array)**2
-    y_q = (q / (24 * E * I *L)) * x_array**2 * (x_array**2 - 4*L*x_array + 6*L**2)
+    # Formule de la flèche pour charge répartie (attention au facteur L parfois oublié)
+    y_q = (q / (24 * E * I)) * x_array**2 * (x_array**2 - 4*L*x_array + 6*L**2)
 
-    # --- Cas 2 : Force ponctuelle F en a (C02) ---
+    # --- Cas 2 : Force ponctuelle F ---
     M_F = np.zeros_like(x_array)
     y_F = np.zeros_like(x_array)
 
-    # Formules par morceaux
     for i, x in enumerate(x_array):
         if x <= a:
             M_F[i] = -F * (a - x)
@@ -75,174 +75,203 @@ def calcul_poutre_console_superposition(x_array, L, a, F, q, E, I):
             M_F[i] = 0
             y_F[i] = (F / (6 * E * I)) * a**2 * (3*x - a)
 
-    # Superposition
-    y_tot = y_q + y_F
-    M_tot = M_q + M_F
-
-    return M_tot, y_tot
+    return M_q + M_F, y_q + y_F
 
 def calcul_force_critique(L, E, I, S, nu, b, h, e):
     """
     Calcule la force critique (Euler vs Johnson/Crippling).
     """
-    # 1. Flambage Global (Euler) - Hypothèse Bi-encastré K=0.5
+    # 1. Flambage Global (Euler)
     K = 0.5
     L_eq = K * L
-    if L_eq == 0: L_eq = 0.001 # Sécurité division par zero
+    if L_eq <= 0: L_eq = 0.001
     F_euler = (np.pi**2 * E * I) / (L_eq**2)
 
     # 2. Voilement Local (Crippling)
-    # On récupère k via interpolation des données fournies
     ratio_bh = b / h
     k_crippling = float(get_k_factor(ratio_bh))
-
-    # Contrainte critique de voilement (Formule cours)
-    # Sigma_cc = (pi * e / h)^2 * E / (12 * (1 - nu^2)) * k
+    
     sigma_cc = ((np.pi * e) / h)**2 * (E / (12 * (1 - nu**2))) * k_crippling
 
-    # 3. Flambage Réel (Interaction Johnson-Euler)
+    # 3. Flambage Réel (Johnson)
     rho = np.sqrt(I / S)
     elancement = L_eq / rho
-    # Limite d'élancement entre plastique et élastique
-    elancement_critique = np.pi * np.sqrt(2 * E / sigma_cc)
-
-    F_critique_finale = 0
-    mode = ""
+    
+    # Sécurité mathématique
+    if sigma_cc <= 0:
+        elancement_critique = 1e9
+    else:
+        elancement_critique = np.pi * np.sqrt(2 * E / sigma_cc)
 
     if elancement >= elancement_critique:
-        # Domaine élastique -> Euler
-        F_critique_finale = F_euler
-        mode = "Euler (Global)"
+        return F_euler, "Euler (Global)", elancement
     else:
-        # Domaine plastique/local -> Johnson
-        # Sigma_johnson = Sigma_cc - (Sigma_cc^2 * lambda^2) / (4 * pi^2 * E)
         sigma_johnson = sigma_cc - (sigma_cc**2 * elancement**2) / (4 * np.pi**2 * E)
-        F_critique_finale = sigma_johnson * S
-        mode = "Johnson (Local/Plastique)"
+        return sigma_johnson * S, "Johnson (Local/Plastique)", elancement
 
-    return F_critique_finale, mode, elancement
-
-##Exercice 5
-def optimisation_section (L, F, E, nu):
-    resultat = []
-    #e entre 1 mm et 10 mm avec un pas de 1 mm
+def optimisation_section(L, F_cible, E, nu):
+    """
+    Cherche la section la plus légère qui résiste à la charge F_cible.
+    """
+    solutions = []
+    # e entre 1 mm et 10 mm
     for e in range(1, 10, 1):
         e_eval = e/(10**3)
-        #b entre 1 cm et 20 cm avec un pas de 1 cm
+        # b entre 1 cm et 20 cm
         for b in range (1, 20, 1):
             b_eval = b/(10**2)
-            #h entre 1 cm et 20 cm avec un pas de 1 cm
+            # h entre 1 cm et 20 cm
             for h in range(1, 20, 1):
                 h_eval = h/(10**2)
+                
                 S, Ix, Iy = calcul_section(h_eval, b_eval, e_eval)
                 f_max = calcul_force_critique(L, E, Ix, S, nu, b_eval, h_eval, e_eval)[0]
-                if f_max < F:
-                        resultat.append((e_eval, b_eval, h_eval))
+                
+                # CONDITION CRITIQUE : La poutre doit résister (F_max >= Charge)
+                if f_max >= F_cible:
+                    solutions.append({'S': S, 'e': e_eval, 'b': b_eval, 'h': h_eval, 'F_max': f_max})
 
+    if not solutions:
+        return "Aucune section trouvée."
+    
+    # On trie par surface croissante (le plus léger en premier)
+    best = sorted(solutions, key=lambda x: x['S'])[0]
+    return (f"OPTIMUM : e={best['e']*1000}mm, b={best['b']*100}cm, h={best['h']*100}cm "
+            f"(Masse lin.={best['S']*2700:.2f} kg/m, F_crit={best['F_max']:.1f}N)")
 
-##Calcul masse
-def calcul_masse_aile_leclerc ( MTOW , S , b , epsilon , phi_25_rad , e_r ) :
+def calcul_masse_aile_leclerc(MTOW, S, b, epsilon, phi_25_rad, e_r):
     """
-    Calcule la masse de l ’ aile selon la formule de F . Leclerc (2002) .
-    Source : Cours ECL Bilan de Masse , Page 26.
+    Calcule la masse de l’aile selon la formule de F. Leclerc (2002).
     """
-    # Allongement ( Aspect Ratio ) lambda = b ^2 / S
-    lamb = b **2 / S
+    # Allongement
+    if S <= 0: return 0
+    lamb = b**2 / S
 
-    # Terme principal de l ’é quation
-    term_1 = ( MTOW * lamb * ( epsilon + 1) ) / ( e_r * np . cos ( phi_25_rad ) )
+    # Sécurité cosinus
+    cos_phi = np.cos(phi_25_rad)
+    if abs(cos_phi) < 0.001: cos_phi = 0.001
+        
+    term_1 = (MTOW * lamb * (epsilon + 1)) / (e_r * cos_phi)
 
-    # Calcul final
-    Mw = 0.197 * ( term_1 **0.6) * ( S **0.3)
+    # Calcul final (Masse Wing)
+    Mw = 0.197 * (term_1**0.6) * (S**0.3)
 
     return Mw
 
-##Exécution et affichage
+
+## ---------------- EXÉCUTION ET AFFICHAGE ---------------- ##
 
 print("RAPPORT DE LA STRUCTURE AVION \n")
 
-#PARTIE 1 : SECTION (EXERCICE 1)
+# PARTIE 1 : SECTION
 S, Ix, Iy = calcul_section(h_sect, b_sect, e_sect)
-print(f"1. PROPRIÉTÉS DE LA SECTION (I de {h_sect*100}x{b_sect*100} cm, ép {e_sect*1000} mm)")
+print(f"1. PROPRIÉTÉS DE LA SECTION")
 print(f"   - Aire (S) : {S:.6e} m²")
-print(f"   - Moment Quadratique (Ix) : {Ix:.6e} m^4")
-print(f"   - Moment Quadratique (Iy) : {Iy:.6e} m^4")
+print(f"   - Ix : {Ix:.6e} m^4")
+print(f"   - Iy : {Iy:.6e} m^4")
 print("-" * 50)
 
-#PARTIE 2 : FLEXION (EXERCICES 2 & 3)
-# Discrétisation
+# PARTIE 2 : FLEXION
 x_vals = np.linspace(0, L_poutre, 200)
 M_res, y_res = calcul_poutre_console_superposition(x_vals, L_poutre, x_F_pos, F_load, q_load, E_ALU, Ix)
 
-# Résultats max
 idx_max_M = np.argmax(np.abs(M_res))
 idx_max_y = np.argmax(np.abs(y_res))
 
-print(f"2. RÉSULTATS FLEXION (L={L_poutre}m, F={F_load}N à {x_F_pos}m, q={q_load}N/m)")
-print(f"   - Moment Fléchissant Max : {abs(M_res[idx_max_M]):.2f} N.m (à x={x_vals[idx_max_M]:.2f} m)")
-print(f"   - Flèche Maximale (bout) : {abs(y_res[idx_max_y])*1000:.2f} mm (à x={x_vals[idx_max_y]:.2f} m)")
+print(f"2. RÉSULTATS FLEXION")
+print(f"   - Moment Max : {abs(M_res[idx_max_M]):.2f} N.m")
+print(f"   - Flèche Max : {abs(y_res[idx_max_y])*1000:.2f} mm")
 print("-" * 50)
 
-# NOTE : J'ai supprimé l'affichage graphique ici pour le mettre à la fin
-
-#PARTIE 3 : FLAMBAGE (EXERCICE 4)
-print(f"3. ANALYSE DU FLAMBAGE (Euler vs Crippling vs Johnson)")
-longueurs_test = [0.5, 2.0]
-
-for L_test in longueurs_test:
+# PARTIE 3 : FLAMBAGE
+print(f"3. ANALYSE DU FLAMBAGE")
+for L_test in [0.5, 2.0]:
     F_crit, mode_ruine, lam = calcul_force_critique(L_test, E_ALU, Ix, S, NU_ALU, b_sect, h_sect, e_sect)
-    print(f"   -> Pour L = {L_test} m :")
-    print(f"      Force Critique = {F_crit:.2f} N")
-    print(f"      Élancement = {lam:.2f}")
-    print(f"      Mode de ruine dominant : {mode_ruine}")
+    print(f"   L={L_test}m : F_crit={F_crit:.1f} N ({mode_ruine})")
 
-#PARTIE 4 : CALCUL DES DONNÉES GRAPHIQUE FLAMBAGE
-# Calcul sur une plage de longueurs
+# PARTIE 4 : OPTIMISATION
+print("-" * 50)
+print("4. RÉSULTAT OPTIMISATION (Ex 5)")
+print(optimisation_section(4, 100, E_ALU, NU_ALU))
+
+# PARTIE 5 : CALCUL MASSE AILE (DONNÉES RÉELLES)
+print("-" * 50)
+print("5. ESTIMATION MASSE AILE (Données: Aircraft_Data.xlsx)")
+
+try:
+    # Lecture du fichier Excel
+    file_path = os.path.join(current_dir, "data", "Aircraft_Data.xlsx")
+    
+    # On gère le cas où le fichier serait un CSV (fallback) ou un Excel
+    if os.path.exists(file_path):
+        df_avions = pd.read_excel(file_path)
+    else:
+        # Essai avec extension csv si xlsx manquant (cas fréquents lors des tests)
+        df_avions = pd.read_csv(os.path.join(current_dir, "data", "Aircraft_Data.csv"))
+
+    # --- SÉLECTION DE L'AVION (Ligne 0 : A300 B4) ---
+    avion = df_avions.iloc[0] 
+    
+    # --- EXTRACTION DES PARAMÈTRES ---
+    # Note : Les colonnes Surface et Envergure n'ont pas de nom dans l'entête du fichier fourni,
+    # on utilise donc leur position (index 13 et 14 vérifiés).
+    
+    mtow_val = avion['MTOW']       # Masse Max (kg)
+    surface_val = avion.iloc[13]   # Surface S (m²) - Colonne index 13
+    envergure_val = avion.iloc[14] # Envergure b (m) - Colonne index 14
+    
+    # Angle de flèche (On prend la colonne 'Avant' en degrés)
+    phi_deg = avion['Avant']  
+    phi_rad = np.radians(phi_deg)
+    
+    # Estimation de l'épaisseur à l'emplanture (e_r)
+    # On approxime e_r via la Corde à l'emplanture ('Emp') * ratio t/c (ex: 15%)
+    corde_emplanture = avion['Emp'] 
+    e_r_val = 0.15 * corde_emplanture 
+    
+    epsilon_val = 0.0 # Aile sèche par défaut
+
+    # --- CALCUL ---
+    masse_estimee = calcul_masse_aile_leclerc(mtow_val, surface_val, envergure_val, epsilon_val, phi_rad, e_r_val)
+    
+    # --- AFFICHAGE STRICT (UNIQUEMENT LA MASSE) ---
+    print(f"Masse de l'aile calculée : {masse_estimee:.2f} kg")
+
+except Exception as e:
+    print(f"Impossible de lire les données avion : {e}")
+
+# --- GRAPHIQUES ---
 l_range = np.linspace(0.1, 5.0, 100)
 forces_critiques = []
 elancements = []
 
-# Calcul de la transition théorique pour l'affichage vertical
 ratio = b_sect / h_sect
 k_val = float(get_k_factor(ratio))
 sigma_cc_temp = ((np.pi * e_sect) / h_sect)**2 * (E_ALU / (12 * (1 - NU_ALU**2))) * k_val
-lambda_crit = np.pi * np.sqrt(2 * E_ALU / sigma_cc_temp)
+lambda_crit = np.pi * np.sqrt(2 * E_ALU / sigma_cc_temp) if sigma_cc_temp > 0 else 0
 
 for l in l_range:
     f_cr, _, lam = calcul_force_critique(l, E_ALU, Ix, S, NU_ALU, b_sect, h_sect, e_sect)
     forces_critiques.append(f_cr)
     elancements.append(lam)
 
-
-# --- PARTIE FINALE : AFFICHAGE DES 3 GRAPHIQUES ---
-
 fig, (ax1, ax2, ax3) = plt.subplots(3, 1, figsize=(10, 12), constrained_layout=True)
 
-# Graphique 1 : Moment
-ax1.plot(x_vals, M_res, 'r-', linewidth=2)
-ax1.fill_between(x_vals, M_res, 0, color='r', alpha=0.1)
-ax1.set_title('1. Diagramme du Moment Fléchissant $M_f(x)$')
-ax1.set_ylabel('Moment (N.m)')
+ax1.plot(x_vals, M_res, 'r-')
+ax1.set_title('Moment Fléchissant (N.m)')
 ax1.grid(True)
 
-# Graphique 2 : Déformée
-ax2.plot(x_vals, y_res * 1000, 'b-', linewidth=2) # Conversion en mm
-ax2.set_title('2. Déformée de la poutre $y(x)$')
-ax2.set_xlabel('Position x (m)')
-ax2.set_ylabel('Flèche (mm)')
-ax2.invert_yaxis() # Flèche positive vers le bas
+ax2.plot(x_vals, y_res * 1000, 'b-')
+ax2.set_title('Déformée (mm)')
+ax2.invert_yaxis()
 ax2.grid(True)
 
-# Graphique 3 : Flambage
-ax3.plot(elancements, forces_critiques, 'g-', linewidth=2, label='Force Critique Réelle')
-ax3.axvline(x=lambda_crit, color='k', linestyle='--', label=rf'Transition Johnson/Euler ($\lambda$={lambda_crit:.1f})')
-ax3.set_title("3. Evolution de la Force Critique de Flambage")
-ax3.set_xlabel(r"Élancement $\lambda$")
-ax3.set_ylabel("Force Critique (N)")
+ax3.plot(elancements, forces_critiques, 'g-', label='Force Critique')
+if lambda_crit > 0:
+    ax3.axvline(x=lambda_crit, color='k', linestyle='--', label='Transition')
+ax3.set_title("Flambage : Force Critique")
+ax3.set_xlabel("Élancement")
 ax3.legend()
 ax3.grid(True)
 
 plt.show()
-
-
-print("Résultats exercice 5 : ", optimisation_section (4, 100, E_ALU, NU_ALU))
