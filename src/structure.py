@@ -22,7 +22,7 @@ q_load = -15.0     # Force linéique (N/m) - vers le haut (donc négatif)
 ##Données pour le flambage local
 # NOTE : Assurez-vous que le dossier "Sources" et le fichier "Data_k_bh.py" existent bien.
 try:
-    from Sources..data.Data_k_bh import bh, k
+    from data.Data_k_bh import bh, k
     bh_data = bh
     k_data = k
 except ImportError:
@@ -122,6 +122,35 @@ def calcul_force_critique(L, E, I, S, nu, b, h, e):
 
     return F_critique_finale, mode, elancement
 
+##Exercice 5
+def optimisation_section (L, F, E, nu):
+    resultat = []
+    #e entre 1 mm et 10 mm avec un pas de 1 mm
+    for e in range(1, 10, 1):
+        e_eval = e/(10**3)
+        #b entre 1 cm et 20 cm avec un pas de 1 cm
+        for b in range (1, 20, 1):
+            b_eval = b/(10**2)
+            #h entre 1 cm et 20 cm avec un pas de 1 cm
+            for h in range(1, 20, 1):
+                h_eval = h/(10**2)
+                S, Ix, Iy = calcul_section(h_eval, b_eval, e_eval)
+                f_max = calcul_force_critique(L, E, Ix, S, nu, b_eval, h_eval, e_eval)[0]
+                if f_max < F:
+                        resultat.append((e_eval, b_eval, h_eval))
+
+
+##Calcul masse
+def calcul_masse_aile ( envergure , corde , e_eq , rho):
+    """
+    Calcule la masse estim ée d’une aile .
+    e_eq : É paisseur é quivalente (m)
+    rho : Densit é du maté riau (kg/m ^3)
+    """
+    S_ref = envergure * corde
+    vol_matiere = 2 * S_ref * e_eq
+    masse = vol_matiere * rho
+    return masse
 ##Exécution et affichage
 
 print("RAPPORT DE LA STRUCTURE AVION \n")
@@ -208,3 +237,6 @@ ax3.legend()
 ax3.grid(True)
 
 plt.show()
+
+
+print("Résultats exercice 5 : ", optimisation_section (4, 100, E_ALU, NU_ALU))
