@@ -2,10 +2,14 @@
 
 **Analyse et modélisation aérodynamique d’un aéronef**
 
-Ce dépôt contient le travail du Groupe 1 dans le cadre du projet de **Vol, Aéronautique et Dynamique (VAD)**.
+Ce dépôt contient le travail du Groupe 6 dans le cadre du projet de VAD.
 Il centralise le code Python, les modèles aérodynamiques, les données et la documentation technique.
 
 ---
+## Comment lancer le projet
+1. Lancer le programme structure.py dans vad_grp6/src
+2. Rentrer les informations utiles à la modélisation
+3. Enregistrer et visualiser les résultats dans analysis
 
 ## 🔧 Objectifs du projet (rapport intermédiaire)
 
@@ -15,30 +19,42 @@ Il centralise le code Python, les modèles aérodynamiques, les données et la d
 - Mettre en place des scripts Python pour :
   - traiter les données,
   - calculer des coefficients,
-  - modéliser le comportement dynamique.
+  - modéliser le comportement dynamique
+  - optimiser la structure d'une aile et d'un fuselage
 
--> **Le rapport intermédiaire est disponible dans VAD_grp1/docs**
+-> **Les rapports sont disponibles dans VAD_grp6/docs**
 
 ---
 
 ## 📁 Organisation du dépôt
 
 ```text
-VAD_grp1/
+VAD_grp6/
 │
 ├── src/                         # Scripts Python du projet
-│   ├── aircraft_details.py      # Paramètres de l’aéronef
-│   ├── structure.py             # Structure générale et gestion des données
+│   ├── aircraft_details.py      # Programme de test, non utile dans ce projet
+│   ├── fuselage_opti.py         # Programme d'optimisation du fuselage
+│   ├── wing_opti.py             # Programme d'optimisation des ailes
+│   ├── structure.py             # Programme principal, fait le lien entre wing_opti.py et fuselage_opti.py
 │   └── data/
 │       ├── Data_k_bh.py         # Fichier de coefficients k,bh
-│       └── Aircraft_Data.xlsx
+│       └── Aircraft_Data.xlsx   # Tableau des caractéristiques de plusieurs avions
+│   └── analysis/
+│       └── plane_name.txt       # Informations issues de l'analyse d'un avion
 │
 ├── models/
-│   └── XFLR5_tests.xfl          # Modèle XFLR5 de l’aéronef
+│   └── XFLR5_tests.xfl          # Modèles XFLR5
+│
+├── matlab/
+│   ├── VAD_modele_1.m           # Fichier matlab correspondant au modèle 1
+│   └── VAD_modele_2.m           # Fichier matlab correspondant au modèle 2
+│
+├── plane_score/
+│   └── flight_dynamics_launcher_2.exe
 │
 ├── docs/
 │   ├── VAD_rapport_intermediaire.pdf
-│   └── cours/                   # Matériel pédagogique (optionnel)
+│   ├── VAD_rapport_final.pdf
+│   └── cours/                   # Cours de VAD
 │
-├── requirements.txt             # Dépendances Python
 └── README.md                    # Documentation du projet
