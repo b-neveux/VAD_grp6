@@ -3,7 +3,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Import optimization modules
+# Imports
 try:
     import wing_opti
     import fuselage_opti
@@ -11,19 +11,17 @@ except ImportError:
     print("[ERREUR] Les fichiers 'wing_opti.py' et 'fuselage_opti.py' doivent être dans le même dossier.")
     sys.exit(1)
 
-# =============================================================================
 # CONSTANTES STATISTIQUES (Ratios de masse Roskam/Torenbeek)
-# =============================================================================
 RATIO_EMPENNAGE = 0.025   # ~2.5% MTOW
-RATIO_TRAIN     = 0.040   # ~4.0% MTOW
-RATIO_NACELLES  = 0.018   # ~1.8% MTOW
-RATIO_SYSTEMES  = 0.120   # ~12% MTOW (Hydraulique, Elec, Avionique...)
-RATIO_AMENAGEMENT= 0.060  # ~6% MTOW (Sièges, Galleys...)
+RATIO_TRAIN     = 0.040   
+RATIO_NACELLES  = 0.018   
+RATIO_SYSTEMES  = 0.120   
+RATIO_AMENAGEMENT= 0.060 
 
-# Constantes Physiques & Mission
+# Constantes physiques & mission
 G = 9.81
 V_SOUND_35K = 295.0       # Vitesse son à 35000ft [m/s]
-DIST_LILLE_COPENHAGUE = 800.0 # [km] Distance opérationnelle estimée
+DIST_LILLE_COPENHAGUE = 800.0 # Distance opérationnelle estimée en km
 
 def input_float(prompt, default_val):
     try:
@@ -52,10 +50,7 @@ def calcul_carburant_breguet(mtow, range_km, mach, sfc_mg, lod):
     
     return total_fuel, mission_fuel
 
-# =============================================================================
 # FONCTIONS D'INERTIE ET GEOMETRIE AVANCÉE
-# =============================================================================
-
 def calcul_inertie_globale(m_comps, geo):
     """
     Estime le tenseur d'inertie de l'avion complet.
@@ -80,7 +75,7 @@ def calcul_inertie_globale(m_comps, geo):
     L_fus = geo['L_fus']
     D_fus = geo['D_fus']
 
-    # 3. Hypothèses de Position (Centres de Gravité Locaux)
+    # 3. Hypothèses de Position (Centres de gravité locaux)
     # Positions X (Longitudinal, depuis le nez)
     X_fus_cg = 0.45 * L_fus
     X_wing_apex = 0.35 * L_fus  # Bord d'attaque emplanture à 35% du fuselage
@@ -98,7 +93,7 @@ def calcul_inertie_globale(m_comps, geo):
     Z_gear = 0.8 * D_fus    # Train sorti (ou rétracté ~0.2) -> Prenons moyenné 0.5
     Z_pay = 0.0
     
-    # --- CALCUL INERTIE VOILURE (STRIP THEORY) ---
+    # CALCUL INERTIE VOILURE
     # On intègre aile + fuel
     mass_wing_fuel = m_wing + m_fuel
     
@@ -121,8 +116,8 @@ def calcul_inertie_globale(m_comps, geo):
         c_y = c_root * (1 - (1-taper) * (y / (b/2)))
         total_area_strip += c_y * dy
 
-    # Calcul propriétés aile (par rapport au Nez)
-    # I_wing_nose (Tensur 3x3 à l'origine Nez)
+    # Calcul propriétés aile (par rapport au nez)
+    # I_wing_nose (Tensur 3x3 à l'origine nez)
     Ixx_w, Iyy_w, Izz_w, Ixz_w = 0, 0, 0, 0
     
     MX_w, MY_w, MZ_w = 0, 0, 0 # Moments statiques pour trouver CG aile
@@ -137,7 +132,7 @@ def calcul_inertie_globale(m_comps, geo):
         z_loc = Z_wing
         # y_loc = y (et -y)
         
-        # Contribution Inertie (Théorème Huygens pour point mass)
+        # Contribution inertie (Théorème Huygens pour point mass)
         Ixx_w += dm * (y**2 + z_loc**2)
         Iyy_w += dm * (x_loc**2 + z_loc**2)
         Izz_w += dm * (x_loc**2 + y**2)
@@ -147,7 +142,7 @@ def calcul_inertie_globale(m_comps, geo):
         MZ_w += dm * z_loc
         # MY_w = 0 (Symétrie)
 
-    # --- AUTRES COMPOSANTS (POINTS MASSES OU CYLINDRES) ---
+    # AUTRES COMPOSANTS (POINTS MASSES OU CYLINDRES)
     components = [
         {'m': m_fus, 'x': X_fus_cg, 'y': 0, 'z': Z_fus, 'type': 'cyl_x', 'L': L_fus, 'R': D_fus/2},
         {'m': m_tail, 'x': X_tail, 'y': 0, 'z': Z_tail, 'type': 'point'},
@@ -189,7 +184,7 @@ def calcul_inertie_globale(m_comps, geo):
             Ixz_tot += dm * (dx * dz)
             continue # Déjà traité
 
-        # Transport Huygens (Standard)
+        # Transport Huygens standard
         Ixx_tot += di_xx + dm * (dy**2 + dz**2)
         Iyy_tot += di_yy + dm * (dx**2 + dz**2)
         Izz_tot += di_zz + dm * (dx**2 + dy**2)
@@ -210,17 +205,14 @@ def calcul_inertie_globale(m_comps, geo):
     
     return [Ixx_cg, Iyy_cg, Izz_cg, Ixy_cg, Iyz_cg, Ixz_cg], (X_CG, Z_CG)
 
-# =============================================================================
 # MAIN
-# =============================================================================
-
 def main():
     os.system('cls' if os.name == 'nt' else 'clear')
     print("="*80)
     print("      INTEGRATION AVION - MISSION LILLE -> COPENHAGUE")
     print("="*80)
 
-    # --- 1. INPUTS ---
+    # INPUTS
     print("\n--- A. CIBLE & MISSION ---")
     mtow_target = input_float(" > MTOW Cible (Structurelle) [kg]", 77000.0)
     n_pax       = input_float(" > Nombre de passagers", 150)
@@ -239,13 +231,13 @@ def main():
     taper       = input_float(" > Effilement (Taper) [0-1]", 0.3)
     sweep       = input_float(" > Flèche (25%) [deg]", 30.0)
     
-    # Calcul Surface Ailaire
+    # Calcul surface ailaire
     S_calc = (b_wing / 2) * c_root * (1 + taper)
-    print(f" [INFO] Surface Ailaire Calculée S = {S_calc:.2f} m²")
+    print(f" [INFO] Surface ailaire calculée S = {S_calc:.2f} m²")
 
     print("\n--- C. GÉOMÉTRIE FUSELAGE ---")
-    l_fus       = input_float(" > Longueur Fuselage [m]", 37.0)
-    d_fus       = input_float(" > Diamètre Fuselage [m]", 4.0)
+    l_fus       = input_float(" > Longueur fuselage [m]", 37.0)
+    d_fus       = input_float(" > Diamètre fuselage [m]", 4.0)
 
     mass_payload = n_pax * 95.0
 
@@ -260,18 +252,24 @@ def main():
     # Aile
     mzfw_est = mtow_target - mass_fuel 
     geo_wing_opt = {'b': b_wing, 'chord_root': c_root, 'tc': tc_wing, 'nz': 3.75}
-    print("\n[1/2] Optimisation Aile...")
-    m_wing_opt, _, success_wing = wing_opti.optimize_wing_structure(mtow_target, geo_wing_opt)
+    print("\n[1/2] Optimisation aile...")
+    
+    # NOTE: On récupère design_wing_si [t_m, h_m, w_m, n_float]
+    m_wing_opt, design_wing_si, success_wing = wing_opti.optimize_wing_structure(mtow_target, geo_wing_opt)
     
     # Fuselage
-    print("\n[2/2] Optimisation Fuselage...")
-    m_fus_opt, _, success_fus = fuselage_opti.optimize_fuselage(mtow_target, l_fus, d_fus)
+    print("\n[2/2] Optimisation fuselage...")
+    
+    # NOTE: On récupère design_fus_mm [t_skin_mm, t_eq_mm]
+    m_fus_opt, design_fus_mm, success_fus = fuselage_opti.optimize_fuselage(mtow_target, l_fus, d_fus)
 
-    # Corrections Masses
-    m_wing_total = m_wing_opt * 1.35
-    m_fus_total  = m_fus_opt * 1.40 
+    # Corrections masses (Facteurs de "non-optimum" et équipements intégrés)
+    FACTOR_WING = 1.35
+    FACTOR_FUS  = 1.40
+    m_wing_total = m_wing_opt * FACTOR_WING
+    m_fus_total  = m_fus_opt * FACTOR_FUS 
 
-    # --- 4. BILAN DE MASSE DÉTAILLÉ ---
+    # 4. BILAN DE MASSE DÉTAILLÉ
     m_empennage = mtow_target * RATIO_EMPENNAGE
     m_train     = mtow_target * RATIO_TRAIN
     m_nacelles  = mtow_target * RATIO_NACELLES
@@ -281,8 +279,9 @@ def main():
 
     oew_calc    = m_wing_total + m_fus_total + m_empennage + m_train + m_nacelles + m_moteurs + m_systemes + m_amenag
     mtow_calc   = oew_calc + mass_payload + mass_fuel
+    delta       = mtow_target - mtow_calc
 
-    # --- 5. RÉSULTATS GÉOMÉTRIQUES & INERTIELS ---
+    # 5. RÉSULTATS GÉOMÉTRIQUES & INERTIELS
     m_comps = {
         'wing': m_wing_total, 'fuselage': m_fus_total, 'empennage': m_empennage,
         'train': m_train, 'propulsion': m_moteurs + m_nacelles,
@@ -295,7 +294,7 @@ def main():
     
     I_tensor, CG_pos = calcul_inertie_globale(m_comps, geo_inertie)
 
-    # --- AFFICHAGE FINAL (Tableaux) ---
+    # AFFICHAGE FINAL (console)
     os.system('cls' if os.name == 'nt' else 'clear')
     print("="*80)
     print(f"      BILAN FINAL - MISSION LILLE -> COPENHAGUE ({range_km} km)")
@@ -319,7 +318,6 @@ def main():
     print(f"{'MTOW CALCULÉE':<25} | {mtow_calc:12.1f} | {'100%':>10} | {'SOMME TOTALE'}")
     print(f"{'MTOW CIBLE':<25} | {mtow_target:12.1f} | {'':>10} | {'Donnée Entrée'}")
     
-    delta = mtow_target - mtow_calc
     print("\n   >>> VERDICT : ", end="")
     if delta >= 0:
         print(f"SUCCÈS ! L'avion est capable d'effectuer la mission (Marge: {delta:.0f} kg)")
@@ -332,14 +330,150 @@ def main():
     print(f"CENTRE DE GRAVITÉ (CG): X={CG_pos[0]:.2f}m (depuis le nez), Z={CG_pos[1]:.2f}m")
     print("-" * 40)
     print("TENSEUR D'INERTIE (kg.m²) au CG, Axes Avion (X arrière, Y droite, Z bas)")
-    print(f"   Ixx (Roulis)  : {I_tensor[0]:.4E}")
-    print(f"   Iyy (Tangage) : {I_tensor[1]:.4E}")
-    print(f"   Izz (Lacet)   : {I_tensor[2]:.4E}")
+    print(f"   Ixx (Roulis)   : {I_tensor[0]:.4E}")
+    print(f"   Iyy (Tangage)  : {I_tensor[1]:.4E}")
+    print(f"   Izz (Lacet)    : {I_tensor[2]:.4E}")
     print(f"   Ixz (Couplage): {I_tensor[5]:.4E}")
-    print(f"   Ixy = Iyz     : 0.00 (Symétrie)")
+    print(f"   Ixy = Iyz      : 0.00 (Symétrie)")
     print("=" * 80)
 
-    # Graphique
+    # PREPARATION DES DONNÉES DÉTAILLÉES POUR SAUVEGARDE
+    # 1. Données aile
+    # design_wing_si est en mètres, on convertit en mm pour lecture aisée
+    w_t_mm = design_wing_si[0] * 1000.0
+    w_h_mm = design_wing_si[1] * 1000.0
+    w_w_mm = design_wing_si[2] * 1000.0
+    w_n_str = int(design_wing_si[3])
+
+    # 2. Données fuselage
+    # design_fus_mm est déjà en mm
+    f_t_mm = design_fus_mm[0]
+    f_teq_mm = design_fus_mm[1]
+
+    # Recalcul des marges fuselage pour le rapport
+    F_tail_est = 0.15 * mtow_target * 9.81
+    M_fus_max = F_tail_est * (0.40 * l_fus)
+    
+    params_fus = {
+        'length': l_fus,
+        'radius': d_fus / 2.0,
+        'delta_p': fuselage_opti.DELTA_P,
+        'moment_flexion': M_fus_max
+    }
+    
+    # Attention: calcul_contraintes attend des épaisseurs en mètres
+    # design_fus_mm est en mm, donc on divise par 1000
+    margins_fus = fuselage_opti.calcul_contraintes_fuselage(
+        [f_t_mm/1000.0, f_teq_mm/1000.0], 
+        params_fus
+    )
+    margin_yield = margins_fus[0]
+    margin_buckling = margins_fus[1]
+
+    # SAUVEGARDE DES RÉSULTATS
+    print("\n" + "="*30)
+    print(" SAUVEGARDE DES DONNÉES")
+    print("="*30)
+    
+    # 1. Définition du chemin ABSOLU (basé sur l'emplacement du script)
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    folder_path = os.path.join(script_dir, "analysis")
+    
+    # Création du dossier s'il n'existe pas
+    os.makedirs(folder_path, exist_ok=True)
+    
+    # 2. Demande nom fichier
+    filename_in = input("Entrez le nom du fichier de sauvegarde (ex: resultats_01) : ")
+    if not filename_in.strip(): 
+        filename_in = "resultat_defaut"
+    if not filename_in.endswith(".txt"):
+        filename_in += ".txt"
+        
+    filepath = os.path.join(folder_path, filename_in)
+
+    # 3. Construction du contenu texte complet
+    verdict_txt = f"SUCCÈS (Marge: {delta:.0f} kg)" if delta >= 0 else f"ECHEC (Surcharge: {abs(delta):.0f} kg)"
+    
+    content_lines = [
+        "="*80,
+        f"RAPPORT D'EXPERIENCE : {filename_in}",
+        "="*80,
+        "",
+        "1. PARAMÈTRES D'ENTRÉE",
+        "-"*40,
+        f"MTOW Cible       : {mtow_target} kg",
+        f"Nombre de passagers        : {n_pax}",
+        f"Mach croisière   : {mach_cr}",
+        f"SFC Moteur       : {sfc_eng} mg/N/s",
+        f"Finesse (L/D)    : {lod_cruise}",
+        "",
+        "GEOMETRIE AILE :",
+        f" - Envergure     : {b_wing} m",
+        f" - Corde emplanture : {c_root} m",
+        f" - Epaisseur relative    : {tc_wing*100} %",
+        f" - Effilement (Taper)     : {taper}",
+        f" - Flèche        : {sweep} deg",
+        "",
+        "GEOMETRIE FUSELAGE :",
+        f" - Longueur      : {l_fus} m",
+        f" - Diametre      : {d_fus} m",
+        "",
+        f" - Surface alaire déduite    : {S_calc:.2f} m2",
+        "",
+        "2. BILAN DE MASSE FINAL",
+        "-"*40,
+        f"{'COMPOSANT':<25} | {'MASSE (kg)':>10}",
+        f"{'Aile':<25} | {m_wing_total:10.1f}",
+        f"{'Fuselage':<25} | {m_fus_total:10.1f}",
+        f"{'Empennages':<25} | {m_empennage:10.1f}",
+        f"{'Train':<25} | {m_train:10.1f}",
+        f"{'Propulsion':<25} | {(m_moteurs+m_nacelles):10.1f}",
+        f"{'Systèmes':<25} | {(m_systemes+m_amenag):10.1f}",
+        f"{'Payload':<25} | {mass_payload:10.1f}",
+        f"{'Fuel':<25} | {mass_fuel:10.1f}",
+        "-"*40,
+        f"{'MTOW CALCULÉE':<25} | {mtow_calc:10.1f}",
+        f"{'MTOW CIBLE':<25} | {mtow_target:10.1f}",
+        f"VERDICT                 : {verdict_txt}",
+        "",
+        "3. PROPRIÉTÉS INERTIELLES ET CENTRAGE",
+        "-"*40,
+        f"CG X (depuis nez)       : {CG_pos[0]:.3f} m",
+        f"CG Z (depuis axe)       : {CG_pos[1]:.3f} m",
+        "Tenseur d'inertie (kg.m2) :",
+        f" Ixx : {I_tensor[0]:.5E}",
+        f" Iyy : {I_tensor[1]:.5E}",
+        f" Izz : {I_tensor[2]:.5E}",
+        f" Ixz : {I_tensor[5]:.5E}",
+        "",
+        "4. DETAILS OPTIMISATION AILE (STRUCTURE)",
+        "-"*40,
+        f"Masse structure brute   : {m_wing_opt:.1f} kg",
+        f"Epaisseur revêtement    : {w_t_mm:.2f} mm",
+        f"Nombre de lisses        : {w_n_str}",
+        f"Section Lisse (H x L)   : {w_h_mm:.1f} mm x {w_w_mm:.1f} mm",
+        "",
+        "5. DETAILS OPTIMISATION FUSELAGE (STRUCTURE)",
+        "-"*40,
+        f"Masse structure brute   : {m_fus_opt:.1f} kg",
+        f"Epaisseur revêtement    : {f_t_mm:.2f} mm",
+        f"Renforts (eq. lisses)   : {f_teq_mm:.2f} mm",
+        "Marges de Sécurité (MS >= 0.0 requis) :",
+        f" - MS Plasticité        : {margin_yield:+.3f}",
+        f" - MS Flambage          : {margin_buckling:+.3f}",
+        "="*80
+    ]
+    
+    # 4. Écriture fichier
+    try:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(content_lines))
+        print(f" [OK] Fichier sauvegardé ici :")
+        print(f"      -> {filepath}")
+    except Exception as e:
+        print(f" [ERREUR] Impossible de sauvegarder le fichier : {e}")
+
+    # Graphique (bloquant, donc à la fin)
     labels = ['Aile', 'Fuselage', 'Autres', 'Propulsion', 'Systèmes', 'Payload', 'Fuel']
     sizes = [m_wing_total, m_fus_total, (m_empennage+m_train), (m_moteurs+m_nacelles), (m_systemes+m_amenag), mass_payload, mass_fuel]
     colors = ['#ff9999','#66b3ff','#99ff99','#ffcc99', '#c2c2f0','#ffb3e6', '#76d7c4']

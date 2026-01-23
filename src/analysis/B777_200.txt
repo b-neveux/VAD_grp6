@@ -1,0 +1,67 @@
+================================================================================
+RAPPORT D'EXPERIENCE : B777_200.txt
+================================================================================
+
+1. PARAMÈTRES D'ENTRÉE
+----------------------------------------
+MTOW Cible       : 247210.0 kg
+Nombre de passagers        : 150.0
+Mach croisière   : 0.44
+SFC Moteur       : 16.0 mg/N/s
+Finesse (L/D)    : 19.3
+
+GEOMETRIE AILE :
+ - Envergure     : 62.9 m
+ - Corde emplanture : 13.14 m
+ - Epaisseur relative    : 12.0 %
+ - Effilement (Taper)     : 0.2
+ - Flèche        : 31.6 deg
+
+GEOMETRIE FUSELAGE :
+ - Longueur      : 73.9 m
+ - Diametre      : 6.19 m
+
+ - Surface alaire déduite    : 495.90 m2
+
+2. BILAN DE MASSE FINAL
+----------------------------------------
+COMPOSANT                 | MASSE (kg)
+Aile                      |    59316.0
+Fuselage                  |    58543.2
+Empennages                |     6180.2
+Train                     |     9888.4
+Propulsion                |    20518.4
+Systèmes                  |    44497.8
+Payload                   |    14250.0
+Fuel                      |    12690.1
+----------------------------------------
+MTOW CALCULÉE             |   225884.1
+MTOW CIBLE                |   247210.0
+VERDICT                 : SUCCÈS (Marge: 21326 kg)
+
+3. PROPRIÉTÉS INERTIELLES ET CENTRAGE
+----------------------------------------
+CG X (depuis nez)       : 35.064 m
+CG Z (depuis axe)       : 0.842 m
+Tenseur d'inertie (kg.m2) :
+ Ixx : 2.41053E+07
+ Iyy : 5.28839E+07
+ Izz : 7.56071E+07
+ Ixz : -5.43798E+05
+
+4. DETAILS OPTIMISATION AILE (STRUCTURE)
+----------------------------------------
+Masse structure brute   : 43937.8 kg
+Epaisseur revêtement    : 9.54 mm
+Nombre de lisses        : 30
+Section Lisse (H x L)   : 95.0 mm x 27.4 mm
+
+5. DETAILS OPTIMISATION FUSELAGE (STRUCTURE)
+----------------------------------------
+Masse structure brute   : 41816.6 kg
+Epaisseur revêtement    : 8.62 mm
+Renforts (eq. lisses)   : 0.10 mm
+Marges de Sécurité (MS >= 0.0 requis) :
+ - MS Plasticité        : +5.236
+ - MS Flambage          : -0.000
+================================================================================

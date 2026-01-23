@@ -5,9 +5,7 @@ import os
 from scipy.optimize import minimize
 from sklearn.linear_model import LinearRegression
 
-# =============================================================================
 # 1. PARAMÈTRES MATÉRIAUX ET CHARGEMENT
-# =============================================================================
 E_MODULUS = 73.1e9       # [Pa] Module Young (Alu 2024)
 YIELD_STRESS = 420e6     # [Pa] Limite élastique
 DENSITY = 2780.0         # [kg/m^3]
@@ -16,12 +14,8 @@ SAFETY_FACTOR = 1.5      # Facteur de sécurité
 # Chargement Pressurisation
 DELTA_P = 60000.0        # [Pa] ~0.6 bar différentiel
 
-# =============================================================================
 # 2. PARTIE A : FORMULES DE MASSE (LITTÉRATURE & RÉGRESSION)
-# =============================================================================
-
 def get_data_path():
-    """ Recherche robuste du fichier de données """
     candidates = [
         "Aircraft_Data.xlsx - Data.csv",
         "Aircraft_Data.csv",
@@ -38,8 +32,7 @@ def get_data_path():
 
 def calcul_regression_fuselage(mtow_target):
     """
-    Exigence: Équation de votre création à partir de Aircraft_Data.
-    On approxime la masse fuselage par ~24% de l'OEW.
+    On approxime la masse fuselage par ~24% de l'OEW. Après avoir fait plusieurs essais c'est une bonne approximation.
     """
     csv_path = get_data_path()
     if not csv_path:
@@ -96,7 +89,6 @@ def formule_raymer_transport(MTOW, L_fus, D_fus):
 def formule_torenbeek_transport(MTOW, L_fus, D_fus):
     """
     Formule Torenbeek (Civil Transport).
-    Plus précise que USAF pour les avions de ligne.
     W_fus = 0.021 * (VD * lt / (w_f + h_f))^0.5 * S_wet^1.2
     
     Approximation simplifiée pour usage général :
@@ -110,10 +102,7 @@ def formule_torenbeek_transport(MTOW, L_fus, D_fus):
     # Masse en kg
     return 0.25 * (s_wet_m2 ** 1.15) * (MTOW / 10000.0) ** 0.5 * 100
 
-# =============================================================================
 # 3. PARTIE B : OPTIMISATION STRUCTURELLE
-# =============================================================================
-
 def calcul_contraintes_fuselage(x, params):
     t_skin, t_eq_str = x
     R = params['radius']
@@ -176,10 +165,7 @@ def optimize_fuselage(mtow, L_fus, D_fus):
     res = minimize(obj_scaled, x0, method='SLSQP', bounds=bounds, constraints=cons, options={'ftol': 1e-4, 'disp': False})
     return res.fun, res.x, res.success
 
-# =============================================================================
 # 4. MAIN
-# =============================================================================
-
 def input_float(prompt, default_val):
     try:
         val_str = input(f"{prompt} [Défaut: {default_val}]: ")
@@ -194,17 +180,16 @@ if __name__ == "__main__":
     print("   PROJET STRUCTURE AVION - BILAN DE MASSE FUSELAGE")
     print("="*70)
     
-    # --- 1. ENTRÉES ---
+    # 1. ENTRÉES
     print("\n--- 1. GÉOMÉTRIE ET CHARGEMENT ---")
     mtow_in = input_float(" > MTOW cible [kg]", 77000.0)
     L_in = input_float(" > Longueur Fuselage [m]", 37.0)
     D_in = input_float(" > Diamètre Fuselage [m]", 4.0)
     
-    # --- 2. BILAN ---
+    # 2. BILAN 
     print("\n--- 2. BILAN DE MASSE (FORMULES) ---")
     
     m_raymer = formule_raymer_transport(mtow_in, L_in, D_in)
-    # Remplacement USAF par Torenbeek calibré
     m_torenbeek = formule_torenbeek_transport(mtow_in, L_in, D_in)
     
     print(f"1. Littérature (Raymer)          : {m_raymer:.0f} kg")
@@ -218,7 +203,7 @@ if __name__ == "__main__":
         m_custom = 0
         print("3. Votre Création                : INDISPONIBLE")
 
-    # --- 3. OPTIMISATION ---
+    # 3. OPTIMISATION
     print("\n--- 3. OPTIMISATION STRUCTURELLE (NIVEAU 2) ---")
     print("... Calcul en cours ...")
     m_opti, x_opti_mm, success = optimize_fuselage(mtow_in, L_in, D_in)
@@ -230,7 +215,7 @@ if __name__ == "__main__":
         diff = (m_opti - m_custom) / m_custom * 100
         print(f" > Écart vs Régression : {diff:+.1f} %")
     
-    # Check Marges
+    # Check marges
     params_check = {
         'length': L_in, 'radius': D_in/2.0, 'delta_p': DELTA_P,
         'moment_flexion': (0.15 * mtow_in * 9.81) * (0.40 * L_in)

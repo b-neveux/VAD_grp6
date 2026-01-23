@@ -1,0 +1,67 @@
+================================================================================
+RAPPORT D'EXPERIENCE : A330_300.txt
+================================================================================
+
+1. PARAMÈTRES D'ENTRÉE
+----------------------------------------
+MTOW Cible       : 212000.0 kg
+Nombre de passagers        : 150.0
+Mach croisière   : 0.44
+SFC Moteur       : 16.0 mg/N/s
+Finesse (L/D)    : 19.0
+
+GEOMETRIE AILE :
+ - Envergure     : 60.3 m
+ - Corde emplanture : 9.0 m
+ - Epaisseur relative    : 12.0 %
+ - Effilement (Taper)     : 0.251
+ - Flèche        : 30.0 deg
+
+GEOMETRIE FUSELAGE :
+ - Longueur      : 63.69 m
+ - Diametre      : 5.64 m
+
+ - Surface alaire déduite    : 339.46 m2
+
+2. BILAN DE MASSE FINAL
+----------------------------------------
+COMPOSANT                 | MASSE (kg)
+Aile                      |    60737.9
+Fuselage                  |    41417.7
+Empennages                |     5300.0
+Train                     |     8480.0
+Propulsion                |    17596.0
+Systèmes                  |    38160.0
+Payload                   |    14250.0
+Fuel                      |    11050.1
+----------------------------------------
+MTOW CALCULÉE             |   196991.7
+MTOW CIBLE                |   212000.0
+VERDICT                 : SUCCÈS (Marge: 15008 kg)
+
+3. PROPRIÉTÉS INERTIELLES ET CENTRAGE
+----------------------------------------
+CG X (depuis nez)       : 30.182 m
+CG Z (depuis axe)       : 0.812 m
+Tenseur d'inertie (kg.m2) :
+ Ixx : 2.16179E+07
+ Iyy : 3.17259E+07
+ Izz : 5.24358E+07
+ Ixz : -4.55056E+05
+
+4. DETAILS OPTIMISATION AILE (STRUCTURE)
+----------------------------------------
+Masse structure brute   : 44991.1 kg
+Epaisseur revêtement    : 5.28 mm
+Nombre de lisses        : 30
+Section Lisse (H x L)   : 101.1 mm x 42.2 mm
+
+5. DETAILS OPTIMISATION FUSELAGE (STRUCTURE)
+----------------------------------------
+Masse structure brute   : 29584.1 kg
+Epaisseur revêtement    : 7.76 mm
+Renforts (eq. lisses)   : 0.10 mm
+Marges de Sécurité (MS >= 0.0 requis) :
+ - MS Plasticité        : +5.286
+ - MS Flambage          : +0.000
+================================================================================

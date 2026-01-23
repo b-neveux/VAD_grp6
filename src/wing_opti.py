@@ -5,25 +5,20 @@ import os
 from scipy.optimize import minimize, fsolve
 from sklearn.linear_model import LinearRegression
 
-# =============================================================================
 # 1. PARAMÈTRES MATÉRIAUX ET CONSTANTES
-# =============================================================================
 E_MODULUS = 71.7e9       # [Pa] Alu 7075/2024
 YIELD_STRESS = 450e6     # [Pa] Limite élastique
 DENSITY = 2800.0         # [kg/m^3] Masse volumique
 SAFETY_FACTOR = 1.5      # Facteur de sécurité
+POISSON_RATIO = 0.33   
 
-# =============================================================================
 # 2. PARTIE A : FORMULES DE MASSE (THÈSE & RÉGRESSION)
-# =============================================================================
-
 def get_data_path():
     """Récupère le chemin du fichier Excel de manière robuste"""
     base_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_dir, "data", "Aircraft_Data.xlsx")
 
 def calcul_regression_custom(mtow_target):
-    """ Exigence: Équation de votre création à partir de Aircraft_Data. """
     excel_path = get_data_path()
     if not os.path.exists(excel_path):
         return None
@@ -94,10 +89,7 @@ def formule_these_torenbeek(MTOW, MZFW, S, b, tc, taper, phi_25, nz=3.75):
     
     return mw_final_lbs * 0.453592
 
-# =============================================================================
 # 3. PARTIE B : MÉCANIQUE & OPTIMISATION (RDM)
-# =============================================================================
-
 def calculate_bending_moment_root(MTOW, b, nz):
     Lift_total = MTOW * 9.81 * nz
     L_half = Lift_total / 2
@@ -139,8 +131,14 @@ def check_structure_constraints_scaled(x_scaled, params):
     margin_yield = (YIELD_STRESS / (SAFETY_FACTOR * sigma_f)) - 1.0
     
     # b) Buckling Skin
-    spacing = w_box / (n_str + 1)
-    sigma_cr_skin = 4.0 * E_MODULUS * (t_skin / spacing)**2
+   # b) Buckling Skin (Mise à jour selon formule exacte)
+    spacing = w_box / (n_str + 1) # Ceci correspond à 'b' sur l'image
+    Kc = 4.0                      # Coefficient Kc pour bords simplement supportés
+    
+    # Formule exacte de l'image : Kc * [ (E * pi^2) / (12 * (1-v^2)) ] * (t/b)^2
+    term_pre = (E_MODULUS * np.pi**2) / (12 * (1 - POISSON_RATIO**2))
+    sigma_cr_skin = Kc * term_pre * (t_skin / spacing)**2
+    
     margin_skin = (sigma_cr_skin / (SAFETY_FACTOR * sigma_f)) - 1.0
     
     # c) Buckling Stringer (Euler)
@@ -202,10 +200,7 @@ def optimize_wing_structure(MTOW_current, geo_data):
         # On renvoie quand même le point final atteint pour analyse
         return res.fun, design_si, False
 
-# =============================================================================
 # 4. MAIN
-# =============================================================================
-
 def input_float(prompt, default_val):
     try:
         val_str = input(f"{prompt} [Défaut: {default_val}]: ")
@@ -264,7 +259,7 @@ if __name__ == "__main__":
     print("... Optimisation des sections (Peau/Lisses) en cours ...")
     mass_opt, design_opt, success = optimize_wing_structure(mtow_in, geo_data)
     
-    # Analyse Marges Finales
+    # Analyse marges finales
     M_final = calculate_bending_moment_root(mtow_in, b_in, 3.75)
     params_check = {'Moment_Flexion': M_final, 'chord_root': c_root_in, 'tc_ratio': tc_in, 'rib_spacing': 0.6, 'span': b_in}
     
